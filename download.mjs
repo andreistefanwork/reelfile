@@ -3,7 +3,8 @@ import { readFile, writeFile, stat, readdir, rm } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { promisify } from 'node:util';
-import { commonsAgent, prepareCaptions } from './captions.mjs';
+import { prepareCaptions } from './captions.mjs';
+import { captionsOnly, fetchSection, sourceArgs } from './web/extraction.mjs';
 
 const exec = promisify(execFile);
 const probeFile = async path => JSON.parse((await exec('ffprobe', ['-v','error','-show_streams','-show_format','-show_chapters','-of','json',path],
@@ -27,39 +28,6 @@ async function processFile(program, args, cwd, onLine) {
     const code = await new Promise((resolve, reject) => { child.once('error',reject); child.once('close',resolve); });
     if (code !== 0) throw Error(program === 'yt-dlp' || /no space left/i.test(diagnostic) ? mediaError(diagnostic) : 'FFmpeg could not prepare this combination of tracks and settings.');
   } finally { lines.close(); }
-}
-
-function sourceArgs(o, source, section) {
-  const args = ['--ignore-config','--no-cache-dir','--no-playlist','--no-colors','--newline','--js-runtimes','node',
-    '--socket-timeout','18','--retries','1','--fragment-retries','1','--match-filters','!is_live','--write-info-json',
-    '--progress','--progress-delta','1','--progress-template','download:PROGRESS:%(progress._percent_str)s','-o','source.%(ext)s'];
-  const commons = source.startsWith('https://upload.wikimedia.org/');
-  if (commons) args.push('--user-agent', commonsAgent);
-  if (!commons && o.captions !== 'off') {
-    if (o.subSource !== 'auto') args.push('--write-subs');
-    if (o.subSource !== 'manual') args.push('--write-auto-subs');
-    args.push('--sub-langs',o.subLang + ',' + o.subLang + '-orig','--sub-format','srt/vtt/best','--convert-subs','srt');
-  }
-  if (o.thumbnail) args.push('--write-thumbnail','--convert-thumbnails','jpg');
-  if (o.type === 'text') args.push('--skip-download');
-  else {
-    let formats;
-    const preferred = o.audioLang ? '[language^=' + o.audioLang + ']' : '';
-    if (o.type === 'audio') formats = (preferred ? 'ba' + preferred + '/b' + preferred + '/' : '') + 'ba/b';
-    else if (o.audioCodec === 'none') formats = 'bv/b';
-    else formats = (preferred ? 'bv+ba' + preferred + '/b' + preferred + '/' : '') + 'bv+ba/b/bv';
-    if (section) {
-      args.push('--download-sections','*' + o.start + '-' + (o.end ?? 'inf'));
-      if (o.type === 'video') args.push('--force-keyframes-at-cuts');
-    }
-    args.push('-f',formats,'--merge-output-format','mkv','--no-simulate','--print-to-file','after_move:filepath','source-path.txt');
-    if (o.type === 'video') {
-      const sort = [o.resolution === 'best' ? 'res' : 'res:' + o.resolution, o.fps === 'source' ? 'fps' : 'fps:' + o.fps];
-      if (o.videoCodec !== 'auto') sort.push('vcodec:' + ({h264:'h264',hevc:'h265',vp9:'vp9',av1:'av1'}[o.videoCodec]));
-      args.push('-S',sort.join(','));
-    }
-  }
-  return [...args,'--',source];
 }
 
 const videoEncoders = {
@@ -171,19 +139,26 @@ async function addFile(job, key, entry) {
 export async function download(job, source) {
   const o = job.options;
   // Commons serves caption tracks separately from the media CDN, so a text-only request can skip the media entirely.
-  const commonsText = o.type === 'text' && !o.thumbnail && source.startsWith('https://upload.wikimedia.org/');
-  const section = o.clip && o.type !== 'text' && ['www.youtube.com','vimeo.com'].includes(new URL(source).hostname);
-  let info = {};
-  if (!commonsText) {
-    await processFile('yt-dlp',sourceArgs(o,source,section),job.dir,line => {
+  if (!captionsOnly(o, source.startsWith('https://upload.wikimedia.org/'))) {
+    await processFile('yt-dlp',sourceArgs(o,source,fetchSection(o,source)),job.dir,line => {
       if (line.startsWith('PROGRESS:')) {
         const pct = parseFloat(line.slice(9));
         if (Number.isFinite(pct)) job.message = 'Downloading a media track · ' + Math.round(pct) + '%';
       }
     });
-    try { info = JSON.parse(await readFile(join(job.dir,'source.info.json'),'utf8')); }
-    catch (error) { if (error.code !== 'ENOENT') throw error; }
   }
+  await finishDownload(job,source);
+  const keep = new Set(Object.values(job.files).map(f => f.filename));
+  for (const name of await readdir(job.dir)) if (!keep.has(name)) await rm(join(job.dir,name),{recursive:true,force:true});
+}
+
+// Both the web service and the terminal export finish the same downloaded tracks here.
+export async function finishDownload(job, source) {
+  const o = job.options;
+  const section = fetchSection(o,source);
+  let info = {};
+  try { info = JSON.parse(await readFile(join(job.dir,'source.info.json'),'utf8')); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
   job.title = info.title || decodeURIComponent(new URL(source).pathname.split('/').pop());
   const caption = await prepareCaptions(job,source);
   if (o.type === 'text') await addFile(job,'file',caption);
@@ -199,6 +174,4 @@ export async function download(job, source) {
     if ((await readdir(job.dir)).includes('source.jpg')) await addFile(job,'thumbnail',{filename:'source.jpg',format:'jpg'});
     else job.notes.push('The source did not provide a cover image.');
   }
-  const keep = new Set(Object.values(job.files).map(f => f.filename));
-  for (const name of await readdir(job.dir)) if (!keep.has(name)) await rm(join(job.dir,name),{recursive:true,force:true});
 }

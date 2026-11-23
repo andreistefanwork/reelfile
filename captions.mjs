@@ -1,4 +1,5 @@
 import { readFile, readdir, writeFile } from 'node:fs/promises';
+import { commonsAgent } from './web/extraction.mjs';
 import { join } from 'node:path';
 
 const timing = /(\d{1,}):(\d{2}):(\d{2})[,.](\d{3})/g;
@@ -49,7 +50,7 @@ export function renderCues(cues, format) {
   return (vtt ? 'WEBVTT\n\n' : '') + blocks.join('\n\n') + '\n';
 }
 
-export const commonsAgent = 'Reelfile/1.0 (https://verdant-delta-4cyx.here.now/; media downloader)';
+
 
 export async function prepareCaptions(job, source) {
   const { options: o, dir } = job;

@@ -1,0 +1,10 @@
+{
+  "name": "reelfile-local",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Finish locally downloaded yt-dlp tracks with Reelfile's export settings",
+  "engines": { "node": ">=22" },
+  "bin": { "reelfile-finish": "./local-finish.mjs" },
+  "files": ["local-finish.mjs", "download.mjs", "captions.mjs", "sources.mjs", "web/source-url.mjs", "web/catalog.mjs", "web/media-options.mjs", "web/extraction.mjs"]
+}
