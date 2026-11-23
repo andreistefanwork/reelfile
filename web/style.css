@@ -26,3 +26,6 @@ button{width:100%}button:hover,.save:hover{background:#153e29}button:disabled{op
 .save{display:inline-flex;align-items:center;justify-content:center;padding:0 18px;margin-top:14px;text-decoration:none}.save[hidden],[hidden]{display:none}
 footer{text-align:center;margin-top:18px;font-size:.83rem;color:#53665b}
 @media(max-width:430px){main{padding:26px 14px}.intro,form,.result{padding-left:20px;padding-right:20px}.brand{margin-bottom:18px}}
+
+.link-help{display:flex;align-items:baseline;justify-content:space-between;gap:6px 12px;flex-wrap:wrap}
+#sample{border:0;background:transparent;color:#29583b;font-size:.86rem;text-decoration:underline;text-underline-offset:3px;width:auto;min-height:unset;padding:0}
