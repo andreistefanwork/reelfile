@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { localCommand } from '../web/local-command.mjs';
 import { settings } from '../web/media-options.mjs';
 import { sourceArgs } from '../web/extraction.mjs';
+import { canonicalSource } from '../sources.mjs';
 
 const clip = {
   url: 'https://youtu.be/GJVwbyAY4Sk?t=7', format:'mkv', start:'1:05.125', end:'1:09', resolution:'144',
@@ -39,7 +40,7 @@ test('a pasted shell export preserves all settings and uses the shared extractio
   const quoted = {url:"https://commons.wikimedia.org/wiki/File:O'Brien_%26_friends.ogv",format:'mp3'};
   run(quoted);
   const last = readdirSync(dir).find(name=>name.startsWith('Reelfile-') && !dirs.includes(name));
-  assert.equal(JSON.parse(readFileSync(join(dir,last,'.reelfile-work','arguments.json'))).at(-1),"https://commons.wikimedia.org/wiki/Special:FilePath/O'Brien_%26_friends.ogv");
+  assert.equal(JSON.parse(readFileSync(join(dir,last,'.reelfile-work','arguments.json'))).at(-1),canonicalSource(quoted.url));
 });
 
 test('Commons text-only jobs skip media extraction and both shells preserve the quote in the title', () => {

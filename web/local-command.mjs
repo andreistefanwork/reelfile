@@ -22,7 +22,6 @@ export function localCommand(payload, shell) {
   if (!source) throw Error('Use a supported public media link.');
   const o = settings(payload);
   const commons = Boolean(source.commonsName);
-  const nativeUrl = commons ? 'https://commons.wikimedia.org/wiki/Special:FilePath/' + encodeURIComponent(source.commonsName) : source.url;
   const config = {url:source.url,format:o.format};
   // Record validated settings in a data file so the terminal never interprets them as code.
   for (const key of ['resolution','fps','videoCodec','audioCodec','bitrate','audioLang','subLang','subSource','subFormat']) {
@@ -33,8 +32,15 @@ export function localCommand(payload, shell) {
   if (o.start) config.start = String(o.start);
   if (o.end !== null) config.end = String(o.end);
   const data = literal(JSON.stringify(config),shell);
-  const args = sourceArgs(o,nativeUrl,fetchSection(o,nativeUrl),commons,true);
-  const extract = captionsOnly(o,commons) ? null : command('yt-dlp',args,shell);
+  const args = sourceArgs(o,source.url,fetchSection(o,source.url),commons,true);
+  // Resolve the same CDN URL as the server. Commons' file redirect adds tracking tags to embedded metadata.
+  const resolveCommons = commons && !captionsOnly(o,commons) && command('node',['-e',
+    "const n=decodeURIComponent(process.argv[1]);const h=require('node:crypto').createHash('md5').update(n).digest('hex');process.stdout.write('https://upload.wikimedia.org/wikipedia/commons/'+h[0]+'/'+h.slice(0,2)+'/'+encodeURIComponent(n))",
+    '--',encodeURIComponent(source.commonsName)],shell);
+  let extract = null;
+  if (!captionsOnly(o,commons)) {
+    extract = resolveCommons ? command('yt-dlp',args.slice(0,-1),shell) + ' "$sourceUrl"' : command('yt-dlp',args,shell);
+  }
 
   if (shell === 'powershell') {
     return [
@@ -45,6 +51,8 @@ export function localCommand(payload, shell) {
       '  try {',
       "    $work = New-Item -ItemType Directory -Path '.reelfile-work'",
       "    [IO.File]::WriteAllText([IO.Path]::Combine($work.FullName, 'job.json'), " + data + ')',
+      ...(resolveCommons ? ['    $sourceUrl = ' + resolveCommons,
+        "    if ($LASTEXITCODE -ne 0) { throw 'Could not resolve the Wikimedia file.' }"] : []),
       ...(extract ? ['    Push-Location -LiteralPath $work.FullName','    try {','      ' + extract,
         "      if ($LASTEXITCODE -ne 0) { throw 'yt-dlp failed.' }",'    } finally { Pop-Location }'] : []),
       '    ' + command('npm.cmd',finishArgs,shell),
@@ -56,6 +64,7 @@ export function localCommand(payload, shell) {
   return [
     '(', '  set -e', '  cd "$(mktemp -d ./Reelfile-XXXXXXXX)"',
     '  mkdir .reelfile-work', "  printf '%s\\n' " + data + ' > .reelfile-work/job.json',
+    ...(resolveCommons ? ['  sourceUrl=$(' + resolveCommons + ')'] : []),
     ...(extract ? ['  (cd .reelfile-work && ' + extract + ')'] : []),
     '  ' + command('npm',finishArgs,shell), ')',
   ].join('\n');
