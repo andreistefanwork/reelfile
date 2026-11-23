@@ -1,4 +1,4 @@
-import { localCommand } from './local-command.mjs?v=4';
+import { localCommand } from './local-command.mjs?v=5';
 import { formats, videoCodecs, audioCodecs, resolutions, rates, bitrates, chapterFormats, captionLanguages } from './catalog.mjs?v=3';
 const form = document.querySelector('#media-form');
 const submit = document.querySelector('#submit');

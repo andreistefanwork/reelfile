@@ -3,7 +3,7 @@ import { parseSource } from './source-url.mjs';
 import { captionsOnly, fetchSection, sourceArgs } from './extraction.mjs?v=4';
 
 // A saved command must keep its export behavior when the site changes.
-const revision = '63738b670d9bd6689815fd469544e5a79b6d21cf';
+const revision = '96b6c4b38688bc7753ceebeb266b7d962d1988eb';
 const finisher = 'https://codeload.github.com/andreistefanwork/reelfile/tar.gz/' + revision;
 const npmArgs = ['--prefix','.','exec','--yes','--ignore-scripts','--no-audit','--no-fund','--package=' + finisher,'--'];
 const finishArgs = [...npmArgs,'reelfile-finish'];
