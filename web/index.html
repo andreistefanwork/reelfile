@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#f0f4f0">
   <title>Reelfile · Media downloader</title>
-  <link rel="stylesheet" href="/style.css?v=2">
-  <script type="module" src="/app.js?v=2"></script>
+  <link rel="stylesheet" href="/style.css?v=3">
+  <script type="module" src="/app.js?v=3"></script>
 </head>
 <body>
   <main>
@@ -68,6 +68,20 @@
           </div>
         </details>
         <button id="submit" type="submit">Prepare download</button>
+        <section class="local-export" aria-label="Local download">
+          <div class="local-actions">
+            <label for="terminal">Terminal<select id="terminal">
+              <option value="posix">macOS / Linux (bash or zsh)</option>
+              <option value="powershell">Windows PowerShell</option>
+            </select></label>
+            <button id="copy-command" type="button">Copy terminal command</button>
+          </div>
+          <small>Run locally with yt-dlp, FFmpeg (including ffprobe), and Node.js 22+ with npm. The command fetches Reelfile’s finishing tool from GitHub and saves your files in a new folder.</small>
+          <p id="copy-status" role="status" aria-live="polite"></p>
+          <details id="command-preview" hidden><summary>View command</summary>
+            <textarea id="command-text" readonly spellcheck="false" aria-label="Local terminal command"></textarea>
+          </details>
+        </section>
       </form>
       <section id="result" class="result" hidden aria-label="Download status">
         <p id="status" role="status" aria-live="polite"></p>

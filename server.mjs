@@ -51,7 +51,10 @@ async function convert(job, source) {
   } finally { job.ends = Date.now() + retainMs; }
 }
 
-const assets = new Map([['/', ['index.html', 'text/html']], ['/style.css', ['style.css', 'text/css']], ['/app.js', ['app.js', 'text/javascript']], ['/catalog.mjs',['catalog.mjs','text/javascript']]]);
+const assets = new Map([['/', ['index.html', 'text/html']], ['/style.css', ['style.css', 'text/css']]]);
+for (const file of ['app.js','catalog.mjs','local-command.mjs','source-url.mjs','media-options.mjs','extraction.mjs']) {
+  assets.set('/' + file,[file,'text/javascript']);
+}
 const server = http.createServer(async (req, res) => {
   try {
     const path = (req.url || '').split('?')[0];

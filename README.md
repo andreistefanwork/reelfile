@@ -12,6 +12,14 @@ The interface runs on here.now. Its proxy authenticates requests to the [Render 
 - Clip either media or captions by start and end time. The app requests sections from YouTube and Vimeo. Direct media files are cut after download. Clip subtitles and chapters use the exported timeline.
 - Metadata, chapters in supported containers, and a separate cover image are optional. The results show which requested extras were available.
 
+## Copy a terminal command
+
+Configure the download, choose **macOS / Linux** or **Windows PowerShell**, then click **Copy terminal command**. Paste the complete block in the directory where you want the files. It creates a fresh Reelfile folder for each run.
+
+Command generation happens in the browser and works while the Render service is unavailable. Install yt-dlp, FFmpeg and ffprobe, and Node.js 22 or later with npm on the computer running the command. The block runs yt-dlp locally and uses npm to retrieve a dependency-free finishing tool pinned to a commit in this public repository. That tool uses the same export code as the server for codec conversion, clip timing, chapters, metadata, and captions. Commons transcript-only jobs fetch the site's caption track directly. Source availability and installed encoder versions can affect the results.
+
+When updating the export pipeline, pin the command generator to the matching public helper revision and run the terminal-command tests.
+
 ## Local development
 
 Install Node.js 22 or newer, yt-dlp with its default dependencies, and FFmpeg (including ffprobe). Run `node server.mjs` and open [the local interface](http://127.0.0.1:3781). Local mode binds to loopback.

@@ -1,3 +1,4 @@
+import { localCommand } from './local-command.mjs';
 import { formats, videoCodecs, audioCodecs, resolutions, rates, bitrates, chapterFormats } from './catalog.mjs?v=2';
 const form = document.querySelector('#media-form');
 const submit = document.querySelector('#submit');
@@ -130,6 +131,56 @@ async function follow(id) {
     await wait(3000);
   }
 }
+function formPayload() {
+  const values = new FormData(form);
+  const payload = Object.fromEntries(values);
+  payload.url = payload.url.trim();
+  payload.bitrate = values.get('videoRate') || values.get('audioRate') || 'auto';
+  for (const key of ['metadata','chapters','thumbnail']) payload[key] = values.has(key);
+  delete payload.type;
+  delete payload.videoRate;
+  delete payload.audioRate;
+  return payload;
+}
+
+const terminal = document.querySelector('#terminal');
+const copyStatus = document.querySelector('#copy-status');
+const preview = document.querySelector('#command-preview');
+const commandText = document.querySelector('#command-text');
+terminal.value = /Windows/i.test(navigator.userAgent) ? 'powershell' : 'posix';
+
+let commandVersion = 0;
+function clearCommand() {
+  commandVersion++;
+  copyStatus.textContent = '';
+  commandText.value = '';
+  preview.open = false;
+  preview.hidden = true;
+}
+form.addEventListener('input', clearCommand);
+form.addEventListener('change', clearCommand);
+document.querySelector('#sample').addEventListener('click', clearCommand);
+document.querySelector('#copy-command').addEventListener('click', async () => {
+  clearCommand();
+  if (!form.reportValidity()) return;
+  const version = commandVersion;
+  let text;
+  try { text = localCommand(formPayload(),terminal.value); }
+  catch (error) { copyStatus.textContent = error.message; return; }
+  commandText.value = text;
+  preview.hidden = false;
+  try {
+    await navigator.clipboard.writeText(text);
+    if (version === commandVersion) copyStatus.textContent = 'Copied. Paste the command into the selected terminal.';
+  } catch {
+    if (version !== commandVersion) return;
+    preview.open = true;
+    commandText.focus();
+    commandText.select();
+    copyStatus.textContent = 'Clipboard access is unavailable. Copy the selected command manually.';
+  }
+});
+
 form.addEventListener('submit', async event => {
   event.preventDefault();
   if (busy) return;
@@ -139,14 +190,7 @@ form.addEventListener('submit', async event => {
   details.textContent = '';
   show('Connecting… The first request can take a minute while the server wakes up.');
   try {
-    const values = new FormData(form);
-    const payload = Object.fromEntries(values);
-    payload.url = payload.url.trim();
-    payload.bitrate = values.get('videoRate') || values.get('audioRate') || 'auto';
-    for (const key of ['metadata','chapters','thumbnail']) payload[key] = values.has(key);
-    delete payload.type;
-    delete payload.videoRate;
-    delete payload.audioRate;
+    const payload = formPayload();
     const { id } = await request('/api/jobs', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload) });
     await follow(id);
