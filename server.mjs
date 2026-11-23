@@ -57,6 +57,9 @@ async function convert(job, source) {
     '--max-filesize', String(limit), '--match-filters', '!is_live & duration<=?600',
     '--progress', '--progress-delta', '1', '--progress-template', 'download:PROGRESS:%(progress._percent_str)s',
     '--print', 'before_dl:TITLE:%(title)j', '--no-simulate', '-o', 'media.%(ext)s'];
+  if (source.startsWith('https://upload.wikimedia.org/')) {
+    options.push('--user-agent', 'Reelfile/1.0 (https://verdant-delta-4cyx.here.now/; media downloader)');
+  }
   if (job.format === 'mp3') {
     options.push('-f', 'ba/b', '-x', '--audio-format', 'mp3', '--audio-quality', '160K');
   } else {
