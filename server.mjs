@@ -1,7 +1,7 @@
 import http from 'node:http';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { execFile, spawn } from 'node:child_process';
-import { createReadStream, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { createReadStream, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -12,7 +12,6 @@ const host = process.env.HOST || '127.0.0.1';
 const local = host === '127.0.0.1';
 const keyHash = local ? null : Buffer.from(readFileSync(new URL('./proxy-key.sha256', import.meta.url), 'utf8').trim(), 'hex');
 if (!local && keyHash.length !== 32) throw new Error('Missing proxy key hash');
-const limit = 50_000_000;
 const retainMs = 10 * 60_000;
 const jobs = new Map();
 const starts = [];
@@ -42,6 +41,7 @@ function expiredJobs() {
 }
 
 function sourceError(output) {
+  if (/no space left on device|disk quota exceeded/i.test(output)) return 'The server ran out of temporary storage while preparing this file.';
   if (/confirm you.?re not a bot|bot detection|blocked.*IP|HTTP Error 429|sign in to confirm/i.test(output))
     return 'The video site blocked this server. Try a different source or try again later.';
   if (/private video|unavailable|not available|not found|HTTP Error 404|password|log in|login required/i.test(output))
@@ -54,7 +54,7 @@ function sourceError(output) {
 async function convert(job, source) {
   const options = ['--ignore-config', '--no-cache-dir', '--no-playlist', '--no-colors', '--newline',
     '--js-runtimes', 'node', '--socket-timeout', '18', '--retries', '1', '--fragment-retries', '1',
-    '--max-filesize', String(limit), '--match-filters', '!is_live & duration<=?600',
+    '--match-filters', '!is_live',
     '--progress', '--progress-delta', '1', '--progress-template', 'download:PROGRESS:%(progress._percent_str)s',
     '--print', 'before_dl:TITLE:%(title)j', '--no-simulate', '-o', 'media.%(ext)s'];
   if (source.startsWith('https://upload.wikimedia.org/')) {
@@ -66,19 +66,8 @@ async function convert(job, source) {
     options.push('-f', 'bv[height<=720][ext=mp4][vcodec^=avc1]+ba[ext=m4a]/b[height<=720][ext=mp4]/b[height<=?720]',
       '--merge-output-format', 'mp4', source === 'https://download.blender.org/peach/trailer/trailer_480p.mov' ? '--remux-video' : '--recode-video', 'mp4');
   }
-  const child = spawn('yt-dlp', [...options, '--', source], { cwd: job.dir, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn('yt-dlp', [...options, '--', source], { cwd: job.dir, stdio: ['ignore', 'pipe', 'pipe'] });
   let diagnostic = '';
-  let stopped = '';
-  const started = Date.now();
-  function stop(reason) {
-    stopped = reason;
-    try { if (child.pid) process.kill(-child.pid, 'SIGKILL'); } catch (error) { if (error.code !== 'ESRCH') throw error; }
-  }
-  const watch = setInterval(() => {
-    if (Date.now() - started > 360_000) return stop('This download timed out. Try a shorter video.');
-    const bytes = readdirSync(job.dir).reduce((sum, name) => sum + (statSync(join(job.dir, name), { throwIfNoEntry: false })?.size || 0), 0);
-    if (bytes > limit * 3) stop('The source is too large for this service.');
-  }, 1000);
   const lines = createInterface({ input: child.stdout });
   lines.on('line', line => {
     if (line.startsWith('TITLE:')) {
@@ -91,24 +80,20 @@ async function convert(job, source) {
   child.stderr.setEncoding('utf8').on('data', chunk => { diagnostic = (diagnostic + chunk).slice(-5000); });
   try {
     const code = await new Promise((resolve, reject) => { child.once('error', reject); child.once('close', resolve); });
-    if (stopped) throw Error(stopped);
     if (code !== 0) throw Error(sourceError(diagnostic));
     const stat = statSync(job.file, { throwIfNoEntry: false });
-    if (!stat || stat.size === 0 || stat.size > limit) throw Error('The file exceeds the limits, is live, or has no matching track. Try a shorter clip.');
-    const { stdout } = await run('ffprobe', ['-v', 'error', '-show_entries', 'format=duration:stream=codec_type', '-of', 'json', job.file], { timeout: 10000 });
+    if (!stat || stat.size === 0) throw Error('The source is live or has no downloadable track for that format.');
+    const { stdout } = await run('ffprobe', ['-v', 'error', '-show_entries', 'stream=codec_type', '-of', 'json', job.file], { timeout: 10000 });
     const probe = JSON.parse(stdout);
-    const duration = Number(probe.format.duration);
-    if (!(duration > 0 && duration <= 600)) throw Error('Choose a clip up to 10 minutes long.');
     if (!probe.streams.some(stream => stream.codec_type === (job.format === 'mp3' ? 'audio' : 'video'))) throw Error('This source has no track for that format.');
     job.size = stat.size;
     job.status = 'ready';
     job.message = 'Your file is ready.';
   } catch (error) {
     job.status = 'error';
-    job.message = /^(This |The |Choose )/.test(error.message) ? error.message : 'The conversion failed. Try another clip.';
+    job.message = /^(This |The )/.test(error.message) ? error.message : 'The conversion failed. Try another clip.';
     rmSync(job.dir, { recursive: true, force: true });
   } finally {
-    clearInterval(watch);
     lines.close();
     job.ends = Date.now() + retainMs;
   }

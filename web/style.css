@@ -21,7 +21,7 @@ fieldset{border:0;padding:0;margin:25px 0 22px}legend{padding:0;margin:0 0 9px}
 .choice b{font-size:1.05rem}.choice small{margin-top:2px}
 button,.save{font:inherit;font-weight:650;cursor:pointer;border:0;border-radius:10px;background:#234c39;color:#fff;min-height:48px;transition:background .15s}
 button{width:100%}button:hover,.save:hover{background:#153e29}button:disabled{opacity:.75;cursor:wait}
-.limits{text-align:center;margin-top:10px}.result{padding:20px clamp(24px,5vw,42px);border-top:1px solid #d8e4d8;background:#f5f8f3;overflow-wrap:anywhere}
+.result{padding:20px clamp(24px,5vw,42px);border-top:1px solid #d8e4d8;background:#f5f8f3;overflow-wrap:anywhere}
 .result.error{background:#fff3ec;color:#743718}.result p{font-weight:650;margin:0}.result span{display:block;font-size:.9rem;color:#536559;margin-top:4px}
 .save{display:inline-flex;align-items:center;justify-content:center;padding:0 18px;margin-top:14px;text-decoration:none}.save[hidden],[hidden]{display:none}
 footer{text-align:center;margin-top:18px;font-size:.83rem;color:#53665b}
