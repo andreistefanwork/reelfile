@@ -1,4 +1,4 @@
-import { formats, videoCodecs, audioCodecs, resolutions, rates, bitrates, chapterFormats } from './catalog.mjs';
+import { formats, videoCodecs, audioCodecs, resolutions, rates, bitrates, chapterFormats } from './catalog.mjs?v=2';
 const form = document.querySelector('#media-form');
 const submit = document.querySelector('#submit');
 const result = document.querySelector('#result');
