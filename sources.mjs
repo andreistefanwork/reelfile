@@ -11,7 +11,7 @@ export function canonicalSource(input) {
 
   const host = url.hostname;
   const path = url.pathname;
-  if (host === 'media.w3.org' && path === '/2010/05/sintel/trailer.mp4') return 'https://media.w3.org' + path;
+  if (host === 'download.blender.org' && path === '/peach/trailer/trailer_480p.mov') return 'https://download.blender.org' + path;
   let id;
   if (host === 'youtu.be') id = path.slice(1);
   if (['youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com'].includes(host)) {

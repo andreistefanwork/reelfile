@@ -61,7 +61,7 @@ async function convert(job, source) {
     options.push('-f', 'ba/b', '-x', '--audio-format', 'mp3', '--audio-quality', '160K');
   } else {
     options.push('-f', 'bv[height<=720][ext=mp4][vcodec^=avc1]+ba[ext=m4a]/b[height<=720][ext=mp4]/b[height<=?720]',
-      '--merge-output-format', 'mp4', '--recode-video', 'mp4');
+      '--merge-output-format', 'mp4', source.startsWith('https://download.blender.org/') ? '--remux-video' : '--recode-video', 'mp4');
   }
   const child = spawn('yt-dlp', [...options, '--', source], { cwd: job.dir, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
   let diagnostic = '';

@@ -1,0 +1,20 @@
+{
+  "proxies": {
+    "/api/jobs": {
+      "upstream": "https://reelfile.onrender.com/api/jobs",
+      "method": "POST",
+      "headers": {
+        "X-Reelfile-Key": "${REELFILE_DC25CM6K_PROXY_KEY}"
+      },
+      "rateLimit": "10/hour/ip"
+    },
+    "/api/jobs/*": {
+      "upstream": "https://reelfile.onrender.com/api/jobs",
+      "method": "GET",
+      "headers": {
+        "X-Reelfile-Key": "${REELFILE_DC25CM6K_PROXY_KEY}"
+      },
+      "rateLimit": "1500/hour/ip"
+    }
+  }
+}

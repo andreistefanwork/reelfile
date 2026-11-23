@@ -7,7 +7,7 @@ const save = document.querySelector('#save');
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 let busy = false;
 document.querySelector('#sample').addEventListener('click', () => {
-  form.elements.url.value = 'https://media.w3.org/2010/05/sintel/trailer.mp4';
+  form.elements.url.value = 'https://download.blender.org/peach/trailer/trailer_480p.mov';
   form.elements.url.focus();
 });
 

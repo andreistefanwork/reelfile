@@ -1,4 +1,5 @@
 .DS_Store
 .local/
-.herenow/
-web/.herenow/
+/.herenow/
+/web/.herenow/*
+!/web/.herenow/proxy.json
