@@ -13,7 +13,7 @@ async function main() {
   const source = canonicalSource(input.url);
   if (!source) throw Error('The job has an unsupported media link.');
   const options = settings(input);
-  const job = {dir, options, files:{}, notes:[]};
+  const job = {dir, options, files:{}, notes:[], onCaptionStatus: message => console.log(message)};
   await finishDownload(job, source);
   const title = String(job.title || 'media').replace(/[<>:"/\\|?*\u0000-\u001f\u007f]/g,'_').replace(/[. ]+$/g,'').slice(0,85);
   const stem = 'Reelfile - ' + (title || 'media');

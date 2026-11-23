@@ -6,5 +6,5 @@
   "description": "Finish locally downloaded yt-dlp tracks with Reelfile's export settings",
   "engines": { "node": ">=22" },
   "bin": { "reelfile-finish": "./local-finish.mjs", "reelfile-prepare": "./local-prepare.mjs" },
-  "files": ["local-prepare.mjs", "local-finish.mjs", "download.mjs", "captions.mjs", "sources.mjs", "web/source-url.mjs", "web/catalog.mjs", "web/media-options.mjs", "web/extraction.mjs"]
+  "files": ["local-prepare.mjs", "local-finish.mjs", "download.mjs", "captions.mjs", "caption-backoff.mjs", "sources.mjs", "web/source-url.mjs", "web/catalog.mjs", "web/media-options.mjs", "web/extraction.mjs"]
 }

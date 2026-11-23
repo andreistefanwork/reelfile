@@ -1,11 +1,10 @@
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
+import { spawn } from 'node:child_process';
+import { createInterface } from 'node:readline';
+import { CaptionRequestError, withCaptionBackoff } from './caption-backoff.mjs';
 import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { captionLanguages } from './web/catalog.mjs';
 import { commonsAgent } from './web/extraction.mjs';
 import { join, resolve } from 'node:path';
-
-const run = promisify(execFile);
 
 const timing = /(\d{1,}):(\d{2}):(\d{2})[,.](\d{3})/g;
 function milliseconds(match) {
@@ -71,12 +70,41 @@ export function captionFile(files, o, creatorTracks = {}) {
   return lang ? 'source.' + lang + '.srt' : undefined;
 }
 
-class CaptionRequestError extends Error {}
+function captionError(o, limited, header) {
+  return new CaptionRequestError(captionLanguages[o.subLang], o.type === 'text', limited, header);
+}
 
-function captionError(o, limited) {
-  const lang = captionLanguages[o.subLang];
-  const reason = limited ? 'The source rate-limited the ' + lang + ' caption request (HTTP 429).' : 'The ' + lang + ' caption track could not be retrieved.';
-  return new CaptionRequestError(reason + (o.type === 'text' ? ' Try the transcript again later.' : ' The media will be saved without captions.'));
+// --print-traffic exposes the HTTP response headers, which yt-dlp omits from its
+// normal warning. Retain only status/rate-limit data; never print or save the trace.
+async function fetchWithYtDlp(args, cwd, o) {
+  const child = spawn('yt-dlp', ['--print-traffic', ...args], {cwd, windowsHide:true, stdio:['ignore','pipe','pipe']});
+  let limited = false;
+  let failed = false;
+  let retryAfter;
+  const readers = [child.stdout,child.stderr].map(stream => {
+    const reader = createInterface({input:stream});
+    let status;
+    reader.on('line', line => {
+      const response = /^(?:reply:\s*['"]|(?:\[debug\]\s*)?<\s*)?HTTP\/[\d.]+\s+(\d{3})/i.exec(line);
+      if (response) {
+        status = Number(response[1]);
+        if (status === 429) limited = true;
+      } else if (status === 429) {
+        const header = /^(?:header:\s*|(?:\[debug\]\s*)?<\s*)?retry-after:\s*(.+)$/i.exec(line);
+        if (header) retryAfter = header[1];
+      }
+      if (/^(?:ERROR|WARNING):/i.test(line)) {
+        if (/HTTP (?:Error )?429\b/i.test(line)) limited = true;
+        if (/^ERROR:|Unable to download video subtitles/i.test(line)) failed = true;
+      }
+    });
+    return reader;
+  });
+  try {
+    const code = await new Promise((ok, fail) => {child.once('error',fail); child.once('close',ok);});
+    if (code !== 0 || failed) throw captionError(o,limited,retryAfter);
+    return {limited,retryAfter};
+  } finally { for (const reader of readers) reader.close(); }
 }
 
 async function commonsCaptions(source,o) {
@@ -87,8 +115,9 @@ async function commonsCaptions(source,o) {
   try {
     const response = await fetch(api, {headers:{'User-Agent':commonsAgent},signal:AbortSignal.timeout(30000)});
     if (response.ok) return await response.text();
+    await response.body?.cancel();
     if ([400,404].includes(response.status)) return '';
-    throw captionError(o,response.status === 429);
+    throw captionError(o,response.status === 429,response.headers.get('retry-after'));
   } catch (error) {
     if (error instanceof TypeError || error.name === 'TimeoutError') throw captionError(o,false);
     throw error;
@@ -114,15 +143,9 @@ async function sourceCaptions(dir,o,info) {
       o.subSource !== 'auto' && Object.hasOwn(manual,lang) ? '--write-subs' : '--write-auto-subs',
       '--sub-langs',lang,'--sub-format','srt/vtt/best','--convert-subs','srt','-o','source.%(ext)s',
       '--load-info-json',resolve(dir,'source.info.json')];
-    let warning;
-    try {
-      const result = await run('yt-dlp',args,{cwd:scratch,maxBuffer:2*1024*1024,windowsHide:true});
-      warning = result.stderr;
-    } catch (error) { throw captionError(o,/\b429\b/.test(error.stderr || '')); }
-    if (/Unable to download video subtitles/i.test(warning) || /\bHTTP Error 429\b/i.test(warning))
-      throw captionError(o,/\b429\b/.test(warning));
+    const outcome = await fetchWithYtDlp(args,scratch,o);
     try { return await readFile(join(scratch,'source.' + lang + '.srt'),'utf8'); }
-    catch (error) { if (error.code === 'ENOENT') throw captionError(o,false); throw error; }
+    catch (error) { if (error.code === 'ENOENT') throw captionError(o,outcome.limited,outcome.retryAfter); throw error; }
   } finally { await rm(scratch,{recursive:true,force:true}); }
 }
 
@@ -131,7 +154,10 @@ export async function prepareCaptions(job, source, info = {}) {
   if (o.captions === 'off') return null;
   let body;
   try {
-    body = source.startsWith('https://upload.wikimedia.org/') ? await commonsCaptions(source,o) : await sourceCaptions(dir,o,info);
+    body = await withCaptionBackoff(
+      () => source.startsWith('https://upload.wikimedia.org/') ? commonsCaptions(source,o) : sourceCaptions(dir,o,info),
+      message => { job.message = message; job.onCaptionStatus?.(message); }
+    );
   } catch (error) {
     if (o.type === 'text' || !(error instanceof CaptionRequestError)) throw error;
     job.notes.push(error.message);

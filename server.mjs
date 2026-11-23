@@ -59,7 +59,7 @@ const server = http.createServer(async (req, res) => {
   try {
     const path = (req.url || '').split('?')[0];
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    if (req.method === 'GET' && path === '/health') return json(res, 200, { status: 'ok' });
+    if (req.method === 'GET' && path === '/health') return json(res, 200, { status: 'ok', revision: process.env.RENDER_GIT_COMMIT?.slice(0,12) });
     if (local && req.method === 'GET' && assets.has(path)) {
       const [file, type] = assets.get(path);
       res.writeHead(200, { 'Content-Type': type + '; charset=utf-8' });

@@ -10,9 +10,10 @@ const exec = promisify(execFile);
 const probeFile = async path => JSON.parse((await exec('ffprobe', ['-v','error','-show_streams','-show_format','-show_chapters','-of','json',path],
   {maxBuffer: 16 * 1024 * 1024})).stdout);
 
-function mediaError(output) {
+export function mediaError(output) {
   if (/no space left on device|disk quota exceeded/i.test(output)) return 'The server ran out of temporary storage.';
-  if (/confirm you.?re not a bot|bot detection|blocked.*IP|HTTP Error 429|sign in to confirm/i.test(output)) return 'The video site blocked this server. Try another source.';
+  if (/not a bot|bot detection|blocked.*IP/i.test(output)) return 'The source rejected the hosted downloader during its bot or IP check. Use Copy terminal command to try this link from your own connection.';
+  if (/HTTP (?:Error )?429\b/i.test(output)) return 'The source rate-limited the hosted media request (HTTP 429), before caption processing. Try again later or use Copy terminal command.';
   if (/HTTP Error 403|private video|unavailable|not found|login required/i.test(output)) return 'The source did not make this media available to the server.';
   if (/requested format is not available|no video formats/i.test(output)) return 'No downloadable track matches these settings.';
   return 'The source could not be downloaded. Try another public link.';

@@ -13,7 +13,7 @@ import {finishDownload} from '../download.mjs';
 
 const run = promisify(execFile);
 
-test('a subtitle HTTP 429 preserves the MP4, fails a transcript, and does not retry the blocked track', async t => {
+test('long caption cooldowns preserve media; a transient 429 recovers without another video download', {timeout:75000}, async t => {
   const dir = await mkdtemp(join(tmpdir(),'reelfile-subtitle-http-'));
   t.after(() => rm(dir,{recursive:true,force:true}));
   const fixture = join(dir,'fixture.mp4');
@@ -25,7 +25,10 @@ test('a subtitle HTTP 429 preserves the MP4, fails a transcript, and does not re
     if (req.url === '/video.mp4') { hits.video++; res.writeHead(200,{'Content-Type':'video/mp4','Content-Length':video.length}); res.end(video); }
     else if (req.url === '/ro.vtt') {
       hits.ro++;
-      if (limited) { res.writeHead(429,{'Retry-After':'3600'}); res.end(); }
+      if (limited) {
+        res.writeHead(429,{'Retry-After':limited === 'once' ? '1' : '3600'}); res.end();
+        if (limited === 'once') limited = false;
+      }
       else { res.writeHead(200,{'Content-Type':'text/vtt'}); res.end('WEBVTT\n\n00:00:00.000 --> 00:00:00.800\nBună ziua\n'); }
     } else { hits.other++; res.writeHead(404); res.end(); }
   });
@@ -49,16 +52,19 @@ test('a subtitle HTTP 429 preserves the MP4, fails a transcript, and does not re
   await finishDownload(job,url);
   const streams = async file => JSON.parse((await run('ffprobe',['-v','error','-show_streams','-of','json',file])).stdout).streams;
   assert.deepEqual((await streams(job.files.file.file)).map(s=>s.codec_type),['video']);
-  assert.match(job.notes.join(' '),/Romanian.*HTTP 429/);
+  assert.match(job.notes.join(' '),/Romanian.*HTTP 429.*source asks to wait until/);
   assert.equal(hits.ro,1);
 
   const transcript = {dir,options:settings({format:'txt',subLang:'ro'}),files:{},notes:[]};
   await assert.rejects(finishDownload(transcript,url),/HTTP 429.*later/);
   assert.equal(hits.ro,2);
-  limited = false;
+  limited = 'once';
   job.notes = [];
+  const progress = [];
+  job.onCaptionStatus = message => progress.push(message);
   await finishDownload(job,url);
   assert.ok((await streams(job.files.file.file)).some(s=>s.codec_type==='subtitle'));
   assert.deepEqual(job.notes,[]);
-  assert.deepEqual(hits,{video:requests,ro:3,other:0});
+  assert.ok(progress.some(message => message.includes('Retry 1 of 3')));
+  assert.deepEqual(hits,{video:requests,ro:4,other:0});
 });
