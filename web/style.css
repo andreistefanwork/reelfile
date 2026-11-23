@@ -1,6 +1,6 @@
 :root{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#192d26;background:#f0f4f0;font-synthesis:none}
 *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 78% 0%,#dceae1 0,transparent 53%)}
-main{max-width:620px;margin:0 auto;padding:clamp(32px,7vh,76px) 20px 24px}
+main{max-width:700px;margin:0 auto;padding:clamp(32px,7vh,76px) 20px 24px}
 .brand{display:flex;align-items:center;gap:11px;font-size:1.1rem;letter-spacing:-.045em;font-weight:750;margin:0 0 24px 2px}
 .mark{display:flex;align-items:center;justify-content:center;gap:2px;background:#193e32;border-radius:9px;width:35px;height:35px;transform:rotate(-5deg)}
 .mark i{width:3px;background:#cbf58b;border-radius:2px;height:9px}.mark i:nth-child(2){height:18px}.mark i:nth-child(3){height:13px}.mark i:nth-child(4){height:7px}
@@ -14,7 +14,7 @@ input[type=url]::placeholder{color:#72857a}
 :focus-visible{outline:3px solid #438658;outline-offset:3px}
 small{display:block;color:#56695e;font-size:.86rem;line-height:1.45}
 fieldset{border:0;padding:0;margin:25px 0 22px}legend{padding:0;margin:0 0 9px}
-.formats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.formats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .choice{position:relative;display:flex;align-items:center;gap:12px;padding:13px 15px;border:1px solid #c9d5cb;border-radius:12px;cursor:pointer}
 .choice:has(:checked){border-color:#467455;background:#eff6ed;box-shadow:inset 0 0 0 1px #467455}
 .choice input{width:16px;height:16px;margin:0;accent-color:#29583b}
@@ -30,3 +30,17 @@ footer{text-align:center;margin-top:18px;font-size:.83rem;color:#53665b}
 .link-help{display:flex;align-items:baseline;justify-content:space-between;gap:6px 12px;flex-wrap:wrap}
 #sample{border:0;background:transparent;color:#29583b;font-size:.86rem;text-decoration:underline;text-underline-offset:3px;width:auto;min-height:unset;padding:0}
 #youtube-note{margin-top:8px;color:#77481e}
+
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px}
+.grid label{display:flex;flex-direction:column;gap:6px;min-width:0;font-size:.9rem;font-weight:600}
+.grid select,.grid input{width:100%;min-height:43px;border:1px solid #aabaae;border-radius:8px;background-color:white;color:inherit;font:inherit;font-weight:400;padding:8px 12px}
+.grid select{appearance:none;padding-right:28px;background-image:linear-gradient(45deg,transparent 50%,#42624a 50%),linear-gradient(135deg,#42624a 50%,transparent 50%);background-position:calc(100% - 16px) 50%,calc(100% - 12px) 50%;background-size:4px 4px;background-repeat:no-repeat}
+.grid label[hidden],.checks label[hidden]{display:none}
+.options{border-top:1px solid #dce4db;margin:0;padding:0}
+.grid+.options,#text-hint+.options{margin-top:19px}
+.options summary{cursor:pointer;padding:14px 2px;font-weight:650;font-size:.95rem}
+.options .inner{margin:0 0 14px}.options small{margin:0 0 14px}
+.checks{display:grid;gap:10px;margin:2px 0 16px}.checks label{display:flex;align-items:center;gap:9px;font-size:.93rem}.checks input{width:16px;height:16px;accent-color:#29583b}
+#submit{margin-top:12px}#text-hint{margin-top:8px}#downloads{display:flex;flex-wrap:wrap;gap:8px}
+#notes{font-weight:400;font-size:.9rem;margin-top:6px}fieldset{margin-bottom:17px}
+@media(max-width:450px){.choice{padding:10px 6px;gap:5px;justify-content:center}.choice b{font-size:.9rem}.choice input{width:13px;height:13px}.grid{gap:10px}.grid label{font-size:.85rem}}

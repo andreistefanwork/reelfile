@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f0f4f0">
   <title>Reelfile · Media downloader</title>
   <link rel="stylesheet" href="/style.css">
-  <script src="/app.js" defer></script>
+  <script type="module" src="/app.js"></script>
 </head>
 <body>
   <main>
@@ -14,7 +14,7 @@
     <section class="sheet" aria-labelledby="heading">
       <div class="intro">
         <h1 id="heading">Media downloader</h1>
-        <p>Save a public video or extract its audio.</p>
+        <p>Save a video, extract audio, or download its captions.</p>
       </div>
       <form id="media-form">
         <label for="url">Media link</label>
@@ -22,18 +22,57 @@
         <div class="link-help"><small id="sources">YouTube, Vimeo, Wikimedia Commons, or Blender</small><button id="sample" type="button">Try a sample</button></div>
         <small id="youtube-note" hidden>YouTube may block downloads from this server, even for public videos.</small>
         <fieldset>
-          <legend>Save as</legend>
+          <legend>Download</legend>
           <div class="formats">
-            <label class="choice"><input type="radio" name="format" value="mp4" checked><span><b>MP4</b><small>Video</small></span></label>
-            <label class="choice"><input type="radio" name="format" value="mp3"><span><b>MP3</b><small>Audio</small></span></label>
+            <label class="choice"><input type="radio" name="type" value="video" checked><b>Video</b></label>
+            <label class="choice"><input type="radio" name="type" value="audio"><b>Audio</b></label>
+            <label class="choice"><input type="radio" name="type" value="text"><b>Transcript</b></label>
           </div>
         </fieldset>
+        <div class="grid">
+          <label>File format<select name="format"></select></label>
+          <label id="resolution-field">Maximum resolution<select name="resolution"></select></label>
+          <label id="audio-rate-field" hidden>Audio bitrate<select name="audioRate"></select></label>
+        </div>
+        <small id="text-hint" hidden>Uses captions provided by the source. TXT contains the words, while SRT and WebVTT retain their timestamps.</small>
+        <details class="options" id="tracks"><summary>Video and audio tracks</summary>
+          <div class="grid inner">
+            <label id="video-codec-field">Video codec<select name="videoCodec"></select></label>
+            <label id="fps-field">Maximum frame rate<select name="fps"></select></label>
+            <label id="audio-codec-field">Audio track<select name="audioCodec"></select></label>
+            <label id="video-rate-field">Audio bitrate<select name="videoRate"></select></label>
+            <label id="language-field">Preferred audio language<input name="audioLang" placeholder="e.g. ro or en-US" maxlength="35" spellcheck="false" aria-describedby="audio-help"></label>
+          </div>
+          <small id="audio-help">Uses the default audio track if the source doesn’t offer your language. Changing codecs can take longer.</small>
+        </details>
+        <details class="options" id="caption-panel"><summary>Captions</summary>
+          <div class="grid inner">
+            <label id="caption-mode">Include captions<select name="captions"></select></label>
+            <label id="caption-format">Subtitle file format<select name="subFormat"></select></label>
+            <label id="caption-language">Caption language<input name="subLang" value="en" maxlength="35" placeholder="en, ro, pt-BR…" spellcheck="false"></label>
+            <label id="caption-source">Caption source<select name="subSource">
+              <option value="prefer">Prefer creator captions</option><option value="manual">Creator captions only</option><option value="auto">Automatic captions only</option>
+            </select></label>
+          </div>
+        </details>
+        <details class="options"><summary>Clip range</summary>
+          <div class="grid inner"><label>Start time<input name="start" placeholder="0:00" aria-describedby="time-help"></label>
+            <label>End time<input name="end" placeholder="End of source" aria-describedby="time-help"></label></div>
+          <small id="time-help">Use seconds, M:SS, or H:MM:SS. Leave either end blank to keep that part of the source.</small>
+        </details>
+        <details class="options"><summary>File extras</summary>
+          <div class="checks">
+            <label id="tags-field"><input type="checkbox" name="metadata">Embed source metadata</label>
+            <label id="chapters-field"><input type="checkbox" name="chapters">Include source chapters</label>
+            <label><input type="checkbox" name="thumbnail">Download the cover image if available</label>
+          </div>
+        </details>
         <button id="submit" type="submit">Prepare download</button>
       </form>
       <section id="result" class="result" hidden aria-label="Download status">
         <p id="status" role="status" aria-live="polite"></p>
         <span id="details"></span>
-        <a id="save" class="save" hidden download>Save file</a>
+        <p id="notes" hidden></p><div id="downloads"></div>
       </section>
     </section>
     <footer>Powered by yt-dlp</footer>

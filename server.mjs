@@ -1,11 +1,10 @@
 import http from 'node:http';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
-import { execFile, spawn } from 'node:child_process';
-import { createReadStream, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { createReadStream, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createInterface } from 'node:readline';
-import { promisify } from 'node:util';
+import { download } from './download.mjs';
+import { settings, mime } from './media-options.mjs';
 import { canonicalSource } from './sources.mjs';
 
 const host = process.env.HOST || '127.0.0.1';
@@ -15,7 +14,6 @@ if (!local && keyHash.length !== 32) throw new Error('Missing proxy key hash');
 const retainMs = 10 * 60_000;
 const jobs = new Map();
 const starts = [];
-const run = promisify(execFile);
 
 function json(res, code, body) {
   res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
@@ -40,66 +38,20 @@ function expiredJobs() {
   }
 }
 
-function sourceError(output) {
-  if (/no space left on device|disk quota exceeded/i.test(output)) return 'The server ran out of temporary storage while preparing this file.';
-  if (/confirm you.?re not a bot|bot detection|blocked.*IP|HTTP Error 429|sign in to confirm/i.test(output))
-    return 'The video site blocked this server. Try a different source or try again later.';
-  if (/private video|unavailable|not available|not found|HTTP Error 404|password|log in|login required/i.test(output))
-    return 'This video is unavailable to the server. Try a public video link.';
-  if (/HTTP Error 403/i.test(output)) return 'The source refused this download. Try another video.';
-  if (/format is not available|no video formats|no audio/i.test(output)) return 'The source has no downloadable track for that format.';
-  return 'The source could not be downloaded. Try a different public video.';
-}
-
 async function convert(job, source) {
-  const options = ['--ignore-config', '--no-cache-dir', '--no-playlist', '--no-colors', '--newline',
-    '--js-runtimes', 'node', '--socket-timeout', '18', '--retries', '1', '--fragment-retries', '1',
-    '--match-filters', '!is_live',
-    '--progress', '--progress-delta', '1', '--progress-template', 'download:PROGRESS:%(progress._percent_str)s',
-    '--print', 'before_dl:TITLE:%(title)j', '--no-simulate', '-o', 'media.%(ext)s'];
-  if (source.startsWith('https://upload.wikimedia.org/')) {
-    options.push('--user-agent', 'Reelfile/1.0 (https://verdant-delta-4cyx.here.now/; media downloader)');
-  }
-  if (job.format === 'mp3') {
-    options.push('-f', 'ba/b', '-x', '--audio-format', 'mp3', '--audio-quality', '160K');
-  } else {
-    options.push('-f', 'bv[height<=720][ext=mp4][vcodec^=avc1]+ba[ext=m4a]/b[height<=720][ext=mp4]/b[height<=?720]',
-      '--merge-output-format', 'mp4', source === 'https://download.blender.org/peach/trailer/trailer_480p.mov' ? '--remux-video' : '--recode-video', 'mp4');
-  }
-  const child = spawn('yt-dlp', [...options, '--', source], { cwd: job.dir, stdio: ['ignore', 'pipe', 'pipe'] });
-  let diagnostic = '';
-  const lines = createInterface({ input: child.stdout });
-  lines.on('line', line => {
-    if (line.startsWith('TITLE:')) {
-      try { job.title = JSON.parse(line.slice(6)); } catch { /* Missing optional title. */ }
-    } else if (line.startsWith('PROGRESS:')) {
-      const percent = parseFloat(line.slice(9));
-      job.message = Number.isFinite(percent) && percent < 100 ? 'Downloading a media track · ' + Math.round(percent) + '%' : 'Preparing your file…';
-    } else diagnostic = (diagnostic + '\n' + line).slice(-5000);
-  });
-  child.stderr.setEncoding('utf8').on('data', chunk => { diagnostic = (diagnostic + chunk).slice(-5000); });
   try {
-    const code = await new Promise((resolve, reject) => { child.once('error', reject); child.once('close', resolve); });
-    if (code !== 0) throw Error(sourceError(diagnostic));
-    const stat = statSync(job.file, { throwIfNoEntry: false });
-    if (!stat || stat.size === 0) throw Error('The source is live or has no downloadable track for that format.');
-    const { stdout } = await run('ffprobe', ['-v', 'error', '-show_entries', 'stream=codec_type', '-of', 'json', job.file], { timeout: 10000 });
-    const probe = JSON.parse(stdout);
-    if (!probe.streams.some(stream => stream.codec_type === (job.format === 'mp3' ? 'audio' : 'video'))) throw Error('This source has no track for that format.');
-    job.size = stat.size;
+    await download(job, source);
     job.status = 'ready';
-    job.message = 'Your file is ready.';
+    job.message = 'Your download is ready.';
   } catch (error) {
     job.status = 'error';
-    job.message = /^(This |The )/.test(error.message) ? error.message : 'The conversion failed. Try another clip.';
+    job.message = /^(This |The |No |FFmpeg )/.test(error.message) ? error.message : 'The conversion failed. Try another source or different settings.';
     rmSync(job.dir, { recursive: true, force: true });
-  } finally {
-    lines.close();
-    job.ends = Date.now() + retainMs;
-  }
+    job.files = {};
+  } finally { job.ends = Date.now() + retainMs; }
 }
 
-const assets = new Map([['/', ['index.html', 'text/html']], ['/style.css', ['style.css', 'text/css']], ['/app.js', ['app.js', 'text/javascript']]]);
+const assets = new Map([['/', ['index.html', 'text/html']], ['/style.css', ['style.css', 'text/css']], ['/app.js', ['app.js', 'text/javascript']], ['/catalog.mjs',['catalog.mjs','text/javascript']]]);
 const server = http.createServer(async (req, res) => {
   try {
     const path = (req.url || '').split('?')[0];
@@ -117,30 +69,36 @@ const server = http.createServer(async (req, res) => {
       let payload;
       try { payload = await input(req); } catch { return json(res, 400, { error: 'Invalid request.' }); }
       const source = canonicalSource(payload?.url);
-      if (!source || !['mp4', 'mp3'].includes(payload?.format)) return json(res, 400, { error: 'Use a supported public media link and choose MP4 or MP3.' });
+      if (!source) return json(res, 400, { error: 'Use a supported public media link.' });
+      let options;
+      try { options = settings(payload); } catch (err) { return json(res, 400, {error: err.message}); }
       expiredJobs();
       while (starts.length && starts[0] < Date.now() - 3600000) starts.shift();
       if (starts.length >= 25 || jobs.size >= 15 || [...jobs.values()].some(j => j.status === 'working'))
         return json(res, 429, { error: 'The downloader is busy. Please try again later.' });
       const id = randomBytes(24).toString('hex');
       const dir = mkdtempSync(join(tmpdir(), 'reelfile-'));
-      const job = { dir, file: join(dir, 'media.' + payload.format), format: payload.format, status: 'working', message: 'Reading the source…' };
+      const job = { dir, options, files: {}, notes: [], status: 'working', message: 'Reading the source…' };
       jobs.set(id, job);
       starts.push(Date.now());
       void convert(job, source);
       return json(res, 202, { id });
     }
-    const match = /^\/api\/jobs\/([a-f0-9]{48})(\/file)?$/.exec(path);
+    const match = /^\/api\/jobs\/([a-f0-9]{48})(?:\/(file|captions|thumbnail))?$/.exec(path);
     const job = match && jobs.get(match[1]);
     if (req.method !== 'GET' || !job || (job.ends && job.ends <= Date.now())) return json(res, 404, { error: 'This download has expired or the server restarted. Please start again.' });
-    if (!match[2]) return json(res, 200, { status: job.status, message: job.message, title: job.title, format: job.format, size: job.size });
+    const files = Object.fromEntries(Object.entries(job.files).map(([key, f]) => [key,{format:f.format,size:f.size}]));
+    if (!match[2]) return json(res, 200, { status: job.status, message: job.message, title: job.title,
+      format: job.options.format, size: files.file?.size, files, notes: job.notes });
     if (job.status !== 'ready') return json(res, 409, { error: 'The file is not ready.' });
+    const output = job.files[match[2]];
+    if (!output) return json(res,404,{error:'This download has no such file.'});
     const filename = String(job.title || 'download').slice(0, 100).replace(/[^a-z0-9 _.-]/gi, '_').trim() || 'download';
-    const stream = createReadStream(job.file);
+    const stream = createReadStream(output.file);
     stream.once('error', () => res.destroy());
-    res.writeHead(200, { 'Content-Type': job.format === 'mp4' ? 'video/mp4' : 'audio/mpeg',
-      'Content-Length': job.size, 'Cache-Control': 'private, no-store',
-      'Content-Disposition': 'attachment; filename="' + filename + '.' + job.format + '"' });
+    res.writeHead(200, { 'Content-Type': mime[output.format],
+      'Content-Length': output.size, 'Cache-Control': 'private, no-store',
+      'Content-Disposition': 'attachment; filename="' + filename + '.' + output.format + '"' });
     res.on('close', () => stream.destroy());
     stream.pipe(res);
   } catch {
