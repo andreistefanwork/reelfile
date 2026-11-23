@@ -1,4 +1,5 @@
 import { readFile, readdir, writeFile } from 'node:fs/promises';
+import { captionLanguages } from './web/catalog.mjs';
 import { commonsAgent } from './web/extraction.mjs';
 import { join } from 'node:path';
 
@@ -50,9 +51,19 @@ export function renderCues(cues, format) {
   return (vtt ? 'WEBVTT\n\n' : '') + blocks.join('\n\n') + '\n';
 }
 
+export function captionFile(files, o, creatorTracks = {}) {
+  const tag = new RegExp('^source\\.(' + o.subLang + '(?:-[A-Za-z]{2}|-[0-9]{3})?(?:-orig)?)\\.srt$');
+  const tracks = files.map(name => tag.exec(name)).filter(Boolean);
+  function rank(lang) {
+    const automatic = o.subSource === 'prefer' && !Object.hasOwn(creatorTracks, lang);
+    const variant = lang === o.subLang ? 0 : lang === o.subLang + '-orig' ? 1 : 2;
+    return Number(automatic) * 3 + variant;
+  }
+  tracks.sort((a,b) => rank(a[1]) - rank(b[1]) || a[1].localeCompare(b[1]));
+  return tracks[0]?.[0];
+}
 
-
-export async function prepareCaptions(job, source) {
+export async function prepareCaptions(job, source, creatorTracks) {
   const { options: o, dir } = job;
   if (o.captions === 'off') return null;
   let body = '';
@@ -67,13 +78,12 @@ export async function prepareCaptions(job, source) {
     }
   } else {
     const files = await readdir(dir);
-    const names = [o.subLang, o.subLang + '-orig'].map(lang => 'source.' + lang + '.srt');
-    const name = names.find(candidate => files.includes(candidate));
+    const name = captionFile(files, o, creatorTracks);
     if (name) body = await readFile(join(dir, name), 'utf8');
   }
   const cues = clippedCues(body, o.start, o.end);
   if (!cues.length) {
-    const reason = 'No ' + o.subLang + ' captions were available for the selected source and time range.';
+    const reason = 'No ' + captionLanguages[o.subLang] + ' captions were available for the selected source and time range.';
     if (o.type === 'text') throw Error(reason);
     job.notes.push(reason);
     return null;

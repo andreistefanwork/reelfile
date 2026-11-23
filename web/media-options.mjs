@@ -1,4 +1,4 @@
-import { formats, videoCodecs, audioCodecs, resolutions, rates, bitrates, chapterFormats } from './catalog.mjs';
+import { formats, videoCodecs, audioCodecs, resolutions, rates, bitrates, chapterFormats, captionLanguages } from './catalog.mjs?v=3';
 export const mime = {
   mp4: 'video/mp4', mkv: 'video/x-matroska', webm: 'video/webm',
   mp3: 'audio/mpeg', m4a: 'audio/mp4', opus: 'audio/ogg', flac: 'audio/flac', wav: 'audio/wav',
@@ -39,7 +39,7 @@ export function settings(input) {
     captions: type === 'text' ? 'only' : choice(input.captions, 'off', type === 'video' ? ['off','embed','sidecar'] : ['off','sidecar'], 'caption option'),
     metadata: input.metadata === true, chapters: input.chapters === true && chapterFormats.includes(format), thumbnail: input.thumbnail === true };
   if (result.captions !== 'off') {
-    result.subLang = language(input.subLang || 'en', 'en');
+    result.subLang = choice(input.subLang, 'en', Object.keys(captionLanguages), 'caption language (English or Romanian)');
     result.subSource = choice(input.subSource,'prefer',['prefer','manual','auto'],'caption source');
     result.subFormat = type === 'text' ? format : choice(input.subFormat,'srt',formats.text,'subtitle file format');
   }

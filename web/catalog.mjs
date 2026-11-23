@@ -17,3 +17,4 @@ export const resolutions = ['best','144','240','360','480','720','1080','1440','
 export const rates = ['source','24','30','50','60'];
 export const bitrates = ['auto','64','96','128','160','192','256','320'];
 export const chapterFormats = ['mp4','mkv','webm','mp3','m4a'];
+export const captionLanguages = { en: 'English', ro: 'Romanian' };

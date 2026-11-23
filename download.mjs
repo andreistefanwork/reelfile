@@ -160,7 +160,7 @@ export async function finishDownload(job, source) {
   try { info = JSON.parse(await readFile(join(job.dir,'source.info.json'),'utf8')); }
   catch (error) { if (error.code !== 'ENOENT') throw error; }
   job.title = info.title || decodeURIComponent(new URL(source).pathname.split('/').pop());
-  const caption = await prepareCaptions(job,source);
+  const caption = await prepareCaptions(job,source,info.subtitles || {});
   if (o.type === 'text') await addFile(job,'file',caption);
   else {
     let input;
