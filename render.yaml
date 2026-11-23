@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: reelfile
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
