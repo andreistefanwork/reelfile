@@ -8,13 +8,13 @@ The interface runs on here.now. Its proxy authenticates requests to the [Render 
 
 - Video exports support MP4, MKV, and WebM. Choose the resolution and frame-rate ceiling, video codec, audio codec, preferred audio language, or mute. The exporter copies compatible streams when possible and uses FFmpeg for requested conversions. A quality ceiling preserves smaller source dimensions.
 - Audio exports support MP3, M4A, Opus, WAV, and FLAC, with bitrate selection for lossy formats.
-- Captions can be embedded in video, saved as a sidecar, or downloaded on their own as SRT, WebVTT, or plain text. Choose a language and creator or automatic tracks. Transcripts use existing captions. Wikimedia Commons timed text is available for files with published tracks.
+- Captions can be embedded in video, saved as a sidecar, or downloaded on their own as SRT, WebVTT, or plain text. Choose English or Romanian. **Prefer creator captions** tries a creator track first, then a matching automatic track offered by the source. If neither is available, media downloads continue without captions and transcript-only requests report the missing track. Transcripts use existing captions. Wikimedia Commons timed text is available for files with published tracks.
 - Clip either media or captions by start and end time. The app requests sections from YouTube and Vimeo. Direct media files are cut after download. Clip subtitles and chapters use the exported timeline.
 - Metadata, chapters in supported containers, and a separate cover image are optional. The results show which requested extras were available.
 
 ## Copy a terminal command
 
-Configure the download, choose **macOS / Linux** or **Windows PowerShell**, then click **Copy terminal command**. Paste the complete block in the directory where you want the files. It creates a fresh Reelfile folder for each run.
+Configure the download, choose **macOS / Linux** or **Windows Command Prompt (CMD)**, then click **Copy terminal command**. Paste the command directly into the selected terminal in the directory where you want the files. It creates a fresh Reelfile folder for each run.
 
 Command generation happens in the browser and works while the Render service is unavailable. Install yt-dlp, FFmpeg and ffprobe, and Node.js 22 or later with npm on the computer running the command. The block runs yt-dlp locally and uses npm to retrieve a dependency-free finishing tool pinned to a commit in this public repository. That tool uses the same export code as the server for codec conversion, clip timing, chapters, metadata, and captions. Commons transcript-only jobs fetch the site's caption track directly. Source availability and installed encoder versions can affect the results.
 

@@ -1,5 +1,5 @@
-import { localCommand } from './local-command.mjs?v=2';
-import { formats, videoCodecs, audioCodecs, resolutions, rates, bitrates, chapterFormats } from './catalog.mjs?v=2';
+import { localCommand } from './local-command.mjs?v=3';
+import { formats, videoCodecs, audioCodecs, resolutions, rates, bitrates, chapterFormats, captionLanguages } from './catalog.mjs?v=3';
 const form = document.querySelector('#media-form');
 const submit = document.querySelector('#submit');
 const result = document.querySelector('#result');
@@ -48,16 +48,26 @@ function configure() {
   visible('caption-format',!text && fields.captions.value === 'sidecar');
   visible('caption-language',captions);
   visible('caption-source',captions);
+  const help = document.querySelector('#caption-help');
+  help.hidden = !captions;
+  if (captions) {
+    const name = captionLanguages[fields.subLang.value];
+    const policy = { prefer: 'Uses creator captions first, then automatic captions offered by the source.',
+      manual: 'Uses creator captions only.', auto: 'Uses automatic captions offered by the source.' };
+    const missing = text ? 'the transcript is unavailable.' : 'your media downloads without captions.';
+    help.textContent = policy[fields.subSource.value] + ' If no matching ' + name + ' captions are available, ' + missing;
+  }
   visible('chapters-field',chapterFormats.includes(format));
   visible('tags-field',!text);
   document.querySelector('#text-hint').hidden = !text;
 }
+choices(fields.subLang,Object.keys(captionLanguages),'en',code => captionLanguages[code]);
 choices(fields.resolution,resolutions,'720',v => v === 'best' ? labels.best : v + 'p');
 choices(fields.fps,rates,'source',v => v === 'source' ? labels.source : v + ' fps');
 for (const field of [fields.videoRate,fields.audioRate]) choices(field,bitrates,'auto',v => v === 'auto' ? labels.auto : v + ' kbps');
 choices(fields.subFormat,['srt','vtt','txt'],'srt');
 form.addEventListener('change', event => {
-  if (['type','format','captions','audioCodec'].includes(event.target.name)) configure();
+  if (['type','format','captions','audioCodec','subLang','subSource'].includes(event.target.name)) configure();
   if (event.target.name === 'type' && fields.type.value === 'text') document.querySelector('#caption-panel').open = true;
 });
 configure();
@@ -147,7 +157,7 @@ const terminal = document.querySelector('#terminal');
 const copyStatus = document.querySelector('#copy-status');
 const preview = document.querySelector('#command-preview');
 const commandText = document.querySelector('#command-text');
-terminal.value = /Windows/i.test(navigator.userAgent) ? 'powershell' : 'posix';
+terminal.value = /Windows/i.test(navigator.userAgent) ? 'cmd' : 'posix';
 
 let commandVersion = 0;
 function clearCommand() {

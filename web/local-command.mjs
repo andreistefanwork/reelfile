@@ -1,29 +1,50 @@
-import { settings } from './media-options.mjs';
+import { settings } from './media-options.mjs?v=3';
 import { parseSource } from './source-url.mjs';
-import { captionsOnly, fetchSection, sourceArgs } from './extraction.mjs';
+import { captionsOnly, fetchSection, sourceArgs } from './extraction.mjs?v=3';
 
-// Pin the finishing code: a saved command must keep its export behavior when the site changes.
-const revision = '528ac7d2f3dcbe785244bcffb91ddda36ec2e0f9';
+// A saved command must keep its export behavior when the site changes.
+const revision = 'e8a3b8edd4833e4884317791b7f9c2928af71635';
 const finisher = 'https://codeload.github.com/andreistefanwork/reelfile/tar.gz/' + revision;
-const finishArgs = ['--prefix','.','exec','--yes','--ignore-scripts','--no-audit','--no-fund','--package=' + finisher,'--','reelfile-finish'];
+const npmArgs = ['--prefix','.','exec','--yes','--ignore-scripts','--no-audit','--no-fund','--package=' + finisher,'--'];
+const finishArgs = [...npmArgs,'reelfile-finish'];
 
-function literal(value, shell) {
-  // All inputs go into single-quoted literals, including the URL and the job description.
-  return "'" + value.replaceAll("'",shell === 'powershell' ? "''" : "'\"'\"'") + "'";
+function literal(value) {
+  return "'" + value.replaceAll("'", "'\"'\"'") + "'";
 }
-function command(executable, args, shell) {
-  const words = args.map(arg => /^[a-zA-Z0-9_./:=+,-]+$/.test(arg) ? arg : literal(arg,shell));
+function command(executable, args) {
+  const words = args.map(arg => /^[a-zA-Z0-9_./:=+,-]+$/.test(arg) ? arg : literal(arg));
   return [executable,...words].join(' ');
 }
 
+function cmdCommand(config, needsMedia) {
+  // Only expansion-free ASCII reaches CMD, including through CALL's second parsing pass.
+  const {url,...options} = config;
+  let source = ['--url',url];
+  if (!/^[A-Za-z0-9_./:?=-]+$/.test(url)) {
+    const bytes = String.fromCharCode(...new TextEncoder().encode(url));
+    source = ['--url64',btoa(bytes).replaceAll('+','-').replaceAll('/','_').replace(/=+$/,'')];
+  }
+  const prepare = ['call','npm.cmd',...npmArgs,'reelfile-prepare',...source];
+  for (const [key,value] of Object.entries(options)) {
+    prepare.push('--' + key);
+    if (value !== true) prepare.push(value);
+  }
+  const steps = ['mkdir %D','cd %D',prepare.join(' ')];
+  if (needsMedia) steps.push('cd .reelfile-work','yt-dlp --ignore-config --config-locations source.conf --batch-file source.urls','cd ..');
+  steps.push(['call','npm.cmd',...finishArgs].join(' '));
+  // One % is the interactive FOR syntax. A fresh child shell contains directory changes.
+  const line = 'for %D in (Reelfile-%RANDOM%-%RANDOM%-%RANDOM%) do cmd.exe /d /s /v:off /c "' + steps.join(' && ') + '"';
+  if (line.length > 8191) throw Error('This link exceeds the Command Prompt line length. Use a shorter media link.');
+  return line;
+}
+
 export function localCommand(payload, shell) {
-  if (!['posix','powershell'].includes(shell)) throw Error('Choose a terminal.');
+  if (!['posix','cmd'].includes(shell)) throw Error('Choose a terminal.');
   const source = parseSource(payload.url);
   if (!source) throw Error('Use a supported public media link.');
   const o = settings(payload);
   const commons = Boolean(source.commonsName);
   const config = {url:source.url,format:o.format};
-  // Record validated settings in a data file so the terminal never interprets them as code.
   for (const key of ['resolution','fps','videoCodec','audioCodec','bitrate','audioLang','subLang','subSource','subFormat']) {
     if (o[key]) config[key] = o[key];
   }
@@ -31,41 +52,22 @@ export function localCommand(payload, shell) {
   for (const key of ['metadata','chapters','thumbnail']) if (o[key]) config[key] = true;
   if (o.start) config.start = String(o.start);
   if (o.end !== null) config.end = String(o.end);
-  const data = literal(JSON.stringify(config),shell);
-  const args = sourceArgs(o,source.url,fetchSection(o,source.url),commons,true);
-  // Resolve the same CDN URL as the server. Commons' file redirect adds tracking tags to embedded metadata.
-  const resolveCommons = commons && !captionsOnly(o,commons) && command('node',['-e',
-    "const n=decodeURIComponent(process.argv[1]);const h=require('node:crypto').createHash('md5').update(n).digest('hex');process.stdout.write('https://upload.wikimedia.org/wikipedia/commons/'+h[0]+'/'+h.slice(0,2)+'/'+encodeURIComponent(n))",
-    '--',encodeURIComponent(source.commonsName)],shell);
-  let extract = null;
-  if (!captionsOnly(o,commons)) {
-    extract = resolveCommons ? command('yt-dlp',args.slice(0,-1),shell) + ' "$sourceUrl"' : command('yt-dlp',args,shell);
-  }
+  const needsMedia = !captionsOnly(o,commons);
+  if (shell === 'cmd') return cmdCommand(config,needsMedia);
 
-  if (shell === 'powershell') {
-    return [
-      '& {',
-      "  $ErrorActionPreference = 'Stop'",
-      "  $out = New-Item -ItemType Directory -Path ('Reelfile-' + [guid]::NewGuid().ToString('N'))",
-      '  Push-Location -LiteralPath $out.FullName',
-      '  try {',
-      "    $work = New-Item -ItemType Directory -Path '.reelfile-work'",
-      "    [IO.File]::WriteAllText([IO.Path]::Combine($work.FullName, 'job.json'), " + data + ')',
-      ...(resolveCommons ? ['    $sourceUrl = ' + resolveCommons,
-        "    if ($LASTEXITCODE -ne 0) { throw 'Could not resolve the Wikimedia file.' }"] : []),
-      ...(extract ? ['    Push-Location -LiteralPath $work.FullName','    try {','      ' + extract,
-        "      if ($LASTEXITCODE -ne 0) { throw 'yt-dlp failed.' }",'    } finally { Pop-Location }'] : []),
-      '    ' + command('npm.cmd',finishArgs,shell),
-      "    if ($LASTEXITCODE -ne 0) { throw 'Reelfile could not finish the export.' }",
-      '  } finally { Pop-Location }',
-      '}',
-    ].join('\n');
-  }
+  const data = literal(JSON.stringify(config));
+  const args = sourceArgs(o,source.url,fetchSection(o,source.url),commons,true);
+  // Commons' redirect adds tracking parameters to embedded metadata. Resolve the original CDN URL.
+  const resolveCommons = commons && needsMedia && command('node',['-e',
+    "const n=decodeURIComponent(process.argv[1]);const h=require('node:crypto').createHash('md5').update(n).digest('hex');process.stdout.write('https://upload.wikimedia.org/wikipedia/commons/'+h[0]+'/'+h.slice(0,2)+'/'+encodeURIComponent(n))",
+    '--',encodeURIComponent(source.commonsName)]);
+  let extract = null;
+  if (needsMedia) extract = resolveCommons ? command('yt-dlp',args.slice(0,-1)) + ' "$sourceUrl"' : command('yt-dlp',args);
   return [
     '(', '  set -e', '  cd "$(mktemp -d ./Reelfile-XXXXXXXX)"',
     '  mkdir .reelfile-work', "  printf '%s\\n' " + data + ' > .reelfile-work/job.json',
     ...(resolveCommons ? ['  sourceUrl=$(' + resolveCommons + ')'] : []),
     ...(extract ? ['  (cd .reelfile-work && ' + extract + ')'] : []),
-    '  ' + command('npm',finishArgs,shell), ')',
+    '  ' + command('npm',finishArgs), ')',
   ].join('\n');
 }

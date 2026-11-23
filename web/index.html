@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f0f4f0">
   <title>Reelfile · Media downloader</title>
   <link rel="stylesheet" href="/style.css?v=3">
-  <script type="module" src="/app.js?v=4"></script>
+  <script type="module" src="/app.js?v=5"></script>
 </head>
 <body>
   <main>
@@ -49,11 +49,12 @@
           <div class="grid inner">
             <label id="caption-mode">Include captions<select name="captions"></select></label>
             <label id="caption-format">Subtitle file format<select name="subFormat"></select></label>
-            <label id="caption-language">Caption language<input name="subLang" value="en" maxlength="35" placeholder="en, ro, pt-BR…" spellcheck="false"></label>
-            <label id="caption-source">Caption source<select name="subSource">
+            <label id="caption-language">Caption language<select name="subLang" aria-describedby="caption-help"></select></label>
+            <label id="caption-source">Caption source<select name="subSource" aria-describedby="caption-help">
               <option value="prefer">Prefer creator captions</option><option value="manual">Creator captions only</option><option value="auto">Automatic captions only</option>
             </select></label>
           </div>
+          <small id="caption-help" hidden></small>
         </details>
         <details class="options"><summary>Clip range</summary>
           <div class="grid inner"><label>Start time<input name="start" placeholder="0:00" aria-describedby="time-help"></label>
@@ -72,7 +73,7 @@
           <div class="local-actions">
             <label for="terminal">Terminal<select id="terminal">
               <option value="posix">macOS / Linux (bash or zsh)</option>
-              <option value="powershell">Windows PowerShell</option>
+              <option value="cmd">Windows Command Prompt (CMD)</option>
             </select></label>
             <button id="copy-command" type="button">Copy terminal command</button>
           </div>

@@ -12,7 +12,7 @@ import { canonicalSource } from '../sources.mjs';
 const clip = {
   url: 'https://youtu.be/GJVwbyAY4Sk?t=7', format:'mkv', start:'1:05.125', end:'1:09', resolution:'144',
   fps:'24', videoCodec:'av1', audioCodec:'opus', audioLang:'ro', bitrate:'128',
-  captions:'sidecar', subLang:'pt-BR', subSource:'auto', subFormat:'txt', thumbnail:true, metadata:true, chapters:true,
+  captions:'sidecar', subLang:'ro', subSource:'auto', subFormat:'txt', thumbnail:true, metadata:true, chapters:true,
 };
 
 test('a pasted shell export preserves all settings and uses the shared extraction arguments', {skip:process.platform === 'win32'}, t => {
@@ -45,16 +45,30 @@ test('a pasted shell export preserves all settings and uses the shared extractio
 
 test('Commons text-only jobs skip media extraction and both shells preserve the quote in the title', () => {
   const text = {url:"https://commons.wikimedia.org/wiki/File:O'Brien.ogv",format:'vtt',subLang:'en',start:'21'};
-  for (const shell of ['posix','powershell']) {
+  for (const shell of ['posix','cmd']) {
     const cmd = localCommand(text,shell);
     assert.doesNotMatch(cmd,/yt-dlp --ignore-config|onrender\.com|\/api\/jobs/);
-    assert.match(cmd,/"format":"vtt"/);
-    assert.match(cmd,/"start":"21"/);
-    if (shell === 'powershell') assert.match(cmd,/O''Brien/);
+    if (shell === 'cmd') {
+      assert.match(cmd,/--format vtt/);
+      assert.match(cmd,/--start 21/);
+      assert.match(cmd,/--url64 [A-Za-z0-9_-]+ /);
+    } else {
+      assert.match(cmd,/"format":"vtt"/);
+      assert.match(cmd,/"start":"21"/);
+    }
   }
 });
 
 test('invalid source, incompatible tracks, and invalid times cannot generate commands', () => {
   for (const changes of [{url:'file:///tmp/file'}, {format:'webm',videoCodec:'hevc'}, {end:'2'}, {subLang:'all,en.*'}])
     assert.throws(()=>localCommand({...clip,...changes},'posix'));
+});
+
+test('interactive CMD invokes native yt-dlp and keeps expansion-sensitive data out of the shell', () => {
+  const cmd = localCommand({...clip,url:"https://commons.wikimedia.org/wiki/File:O'Brien_%26_friends.ogv"},'cmd');
+  assert.match(cmd,/^for %D in \(Reelfile-%RANDOM%-%RANDOM%-%RANDOM%\) do cmd\.exe /);
+  assert.match(cmd,/&& yt-dlp --ignore-config --config-locations source\.conf --batch-file source\.urls &&/);
+  assert.doesNotMatch(cmd,/PowerShell|O'Brien|%26|[\r\n]/);
+  assert.match(cmd,/--subLang ro/);
+  assert.throws(() => localCommand(clip,'powershell'));
 });
