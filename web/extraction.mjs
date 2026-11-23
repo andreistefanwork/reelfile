@@ -17,7 +17,8 @@ export function sourceArgs(o, source, section, commons = source.startsWith('http
   if (!commons && o.captions !== 'off') {
     if (o.subSource !== 'auto') args.push('--write-subs');
     if (o.subSource !== 'manual') args.push('--write-auto-subs');
-    args.push('--sub-langs',o.subLang + '(?:-[A-Za-z]{2}|-[0-9]{3})?(?:-orig)?','--sub-format','srt/vtt/best','--convert-subs','srt');
+    // Keep caption metadata, but defer the actual HTTP request until after the media download.
+    args.push('--sub-langs',o.subLang + '(?:-[A-Za-z]{2}|-[0-9]{3})?(?:-orig)?','--sub-format','srt/vtt/best','-o','subtitle:');
   }
   if (o.thumbnail) args.push('--write-thumbnail','--convert-thumbnails','jpg');
   if (o.type === 'text') args.push('--skip-download');
