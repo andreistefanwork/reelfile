@@ -1,9 +1,9 @@
 import { settings } from './media-options.mjs?v=3';
 import { parseSource } from './source-url.mjs';
-import { captionsOnly, fetchSection, sourceArgs } from './extraction.mjs?v=3';
+import { captionsOnly, fetchSection, sourceArgs } from './extraction.mjs?v=4';
 
 // A saved command must keep its export behavior when the site changes.
-const revision = 'e8a3b8edd4833e4884317791b7f9c2928af71635';
+const revision = '63738b670d9bd6689815fd469544e5a79b6d21cf';
 const finisher = 'https://codeload.github.com/andreistefanwork/reelfile/tar.gz/' + revision;
 const npmArgs = ['--prefix','.','exec','--yes','--ignore-scripts','--no-audit','--no-fund','--package=' + finisher,'--'];
 const finishArgs = [...npmArgs,'reelfile-finish'];
