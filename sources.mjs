@@ -11,7 +11,8 @@ export function canonicalSource(input) {
 
   const host = url.hostname;
   const path = url.pathname;
-  if (host === 'download.blender.org' && path === '/peach/trailer/trailer_480p.mov') return 'https://download.blender.org' + path;
+  if (host === 'download.blender.org' && /^\/(?:[\w.-]+\/)*[\w.-]+\.(?:mov|mp4|webm|ogv|ogg|mp3|wav|flac)$/i.test(path))
+    return 'https://download.blender.org' + path;
   let id;
   if (host === 'youtu.be') id = path.slice(1);
   if (['youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com'].includes(host)) {

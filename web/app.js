@@ -6,8 +6,15 @@ const details = document.querySelector('#details');
 const save = document.querySelector('#save');
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 let busy = false;
+function showSourceNote() {
+  let host;
+  try { host = new URL(form.elements.url.value).hostname; } catch { host = ''; }
+  document.querySelector('#youtube-note').hidden = !/^(?:(?:www|m|music)\.)?youtube\.com$|^youtu\.be$/.test(host);
+}
+form.elements.url.addEventListener('input', showSourceNote);
 document.querySelector('#sample').addEventListener('click', () => {
   form.elements.url.value = 'https://download.blender.org/peach/trailer/trailer_480p.mov';
+  showSourceNote();
   form.elements.url.focus();
 });
 

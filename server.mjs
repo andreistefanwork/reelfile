@@ -61,7 +61,7 @@ async function convert(job, source) {
     options.push('-f', 'ba/b', '-x', '--audio-format', 'mp3', '--audio-quality', '160K');
   } else {
     options.push('-f', 'bv[height<=720][ext=mp4][vcodec^=avc1]+ba[ext=m4a]/b[height<=720][ext=mp4]/b[height<=?720]',
-      '--merge-output-format', 'mp4', source.startsWith('https://download.blender.org/') ? '--remux-video' : '--recode-video', 'mp4');
+      '--merge-output-format', 'mp4', source === 'https://download.blender.org/peach/trailer/trailer_480p.mov' ? '--remux-video' : '--recode-video', 'mp4');
   }
   const child = spawn('yt-dlp', [...options, '--', source], { cwd: job.dir, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
   let diagnostic = '';
@@ -129,7 +129,7 @@ const server = http.createServer(async (req, res) => {
       let payload;
       try { payload = await input(req); } catch { return json(res, 400, { error: 'Invalid request.' }); }
       const source = canonicalSource(payload?.url);
-      if (!source || !['mp4', 'mp3'].includes(payload?.format)) return json(res, 400, { error: 'Enter a YouTube, Vimeo, or Wikimedia Commons media link and choose MP4 or MP3.' });
+      if (!source || !['mp4', 'mp3'].includes(payload?.format)) return json(res, 400, { error: 'Use a supported public media link and choose MP4 or MP3.' });
       expiredJobs();
       while (starts.length && starts[0] < Date.now() - 3600000) starts.shift();
       if (starts.length >= 25 || jobs.size >= 15 || [...jobs.values()].some(j => j.status === 'working'))

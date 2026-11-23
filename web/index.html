@@ -18,8 +18,9 @@
       </div>
       <form id="media-form">
         <label for="url">Media link</label>
-        <input id="url" name="url" type="url" inputmode="url" placeholder="https://…" required aria-describedby="sources" autocomplete="off">
-        <div class="link-help"><small id="sources">YouTube, Vimeo, or Wikimedia Commons</small><button id="sample" type="button">Try a sample</button></div>
+        <input id="url" name="url" type="url" inputmode="url" placeholder="https://…" required aria-describedby="sources youtube-note" autocomplete="off">
+        <div class="link-help"><small id="sources">YouTube, Vimeo, Wikimedia Commons, or Blender</small><button id="sample" type="button">Try a sample</button></div>
+        <small id="youtube-note" hidden>YouTube may block downloads from this server, even for public videos.</small>
         <fieldset>
           <legend>Save as</legend>
           <div class="formats">
